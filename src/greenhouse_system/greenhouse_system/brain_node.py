@@ -7,6 +7,11 @@ class BrainNode(Node):
     def __init__(self):
         super().__init__('climate_brain')
 
+        # Declare parameters
+        self.declare_parameter('temp_threshold', 35.0)
+        self.declare_parameter('hum_threshold', 40.0)
+
+        # Subscribers
         self.create_subscription(
             Float32,
             '/climate/temp',
@@ -21,6 +26,7 @@ class BrainNode(Node):
             10
         )
 
+        # Publisher
         self.pub = self.create_publisher(
             String,
             '/sprinkler_cmd',
@@ -42,20 +48,32 @@ class BrainNode(Node):
 
         cmd = String()
 
-        if self.current_temp > 35.0 or self.current_hum < 40.0:
+        # Read live parameter values
+        target_temp = self.get_parameter(
+            'temp_threshold'
+        ).value
+
+        target_hum = self.get_parameter(
+            'hum_threshold'
+        ).value
+
+        # Logic
+        if self.current_temp > target_temp or self.current_hum < target_hum:
+
             cmd.data = "ON"
+
+            self.get_logger().warn(
+                f"Threshold breached! "
+                f"(Target Temp: {target_temp})"
+            )
+
         else:
             cmd.data = "OFF"
 
         self.pub.publish(cmd)
 
-        self.get_logger().info(
-            f"Temp={self.current_temp:.2f}, "
-            f"Humidity={self.current_hum:.2f} "
-            f"--> Sprinkler {cmd.data}"
-        )
-
 def main():
+
     rclpy.init()
 
     node = BrainNode()
